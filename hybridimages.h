@@ -3,6 +3,6 @@
 
 #include <string>
 
-int HybridImages_main(const std::string& fname1, const std::string& fname2, const std::string& outname, float sig);
+int HybridImages_main(const std::string& fname1, const std::string& fname2, const std::string& outname, const double sig);
 
 #endif
