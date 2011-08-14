@@ -19,7 +19,15 @@ void swap(cv::Mat& src, const double xm, const double ym) {
     tmp.copyTo(q2);
 }
 
+#include <iostream>
+
 void gaussian_kernel(cv::Mat& g1, cv::Mat& g2, const cv::Size& ksize, const double sig) {
+    if (g1.cols != ksize.width || g1.rows != ksize.height) {
+        g1 = cv::Mat(ksize, CV_64FC2);
+    }
+    if (g2.cols != ksize.width || g2.rows != ksize.height) {
+        g2 = cv::Mat(ksize, CV_64FC2);
+    }
     const double ss2 = sig*sig*2;
     const int xs = ksize.width, ys = ksize.height;
     const double xm = xs/2.0, ym = ys/2.0;
