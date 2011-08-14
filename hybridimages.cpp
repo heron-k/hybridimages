@@ -42,7 +42,6 @@ void HybridImages::init(const cv::Mat& img1, const cv::Mat& img2) {
     cv::Mat dst2;
     cv::resize(img2, dst2, dsize, CV_INTER_CUBIC);
     dst2.convertTo(src2, CV_64FC3);
-    std::cerr << "initialized" << std::endl;
 }
 
 // 複素数平面をdft1, dft2にコピーし，残りの行列右側部分を0で埋めた後，離散フーリエ変換を行う
@@ -55,7 +54,6 @@ void HybridImages::dft(const cv::Mat& src, cv::Mat& dst) {
         t = cv::Mat::zeros(t.size(), t.type());
     }
     cv::dft(dst, dst, 0, src.rows);
-    std::cerr << "DFT" << std::endl;
 }
 
 //////////////////////////////////////////
@@ -118,6 +116,6 @@ cv::Mat& HybridImages::getHybridImages(const double sigma) {
     cv::merge(mv, dst);
     cv::Mat result(dsize, CV_8UC3);
     cv::convertScaleAbs(dst, result);
-    dsts[sigma] = result;    
+    dsts[sigma] = result;
     return dsts[sigma];
 }
