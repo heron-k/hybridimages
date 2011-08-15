@@ -1,5 +1,5 @@
 CC = g++
-CXXFLAGS = `pkg-config --cflags --libs opencv` -O2 -Wall
+CXXFLAGS = `pkg-config --cflags --libs opencv` -O2 -Wall -lboost_program_options
 TARGET = hybridimages
 OBJ = $(TARGET).o gaussian_kernel.o
 RM = rm

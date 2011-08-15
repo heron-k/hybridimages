@@ -1,0 +1,10 @@
+* Requirements (Tested Emvironment)
+OS
+  Mac OS X snow leopard ver10.6.8
+
+Compiler
+  g++ 4.2.1
+
+Library
+  opencv 2.1
+  boost 1.47.0
