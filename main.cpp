@@ -1,6 +1,7 @@
 #include "hybridimages.h"
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
+#include <cmath>
 #include <fstream>
 #include <boost/program_options.hpp>
 
@@ -11,17 +12,22 @@ int main(int argc, char* argv[]) {
     po::options_description general("Command Line Options");
     general.add_options()
         ("help,h", "show help message")
-        ("verbose,v", "show verbose message");
+        ("show", "show image using highgui")
+        ("verbose,v", "show verbose message")
+        ("debug,d", "show debug infomation using highgui");
     
     std::string input1;
     std::string input2;
     double sigma;
     std::string output;
-
+    int l2, t2;
+    
     po::options_description config("Configuration");
     config.add_options()
         ("output,o", po::value<std::string>(&output), "output hybridimages")
-        ("sigma,s", po::value<double>(&sigma)->default_value(7.5), "hybrid parameter");
+        ("sigma,s", po::value<double>(&sigma)->default_value(7.5), "hybrid parameter")
+        ("top,t", po::value<int>(&t2)->default_value(0), "top of input file2 for hybrid image")
+        ("left,l", po::value<int>(&l2)->default_value(0), "left of input file2 for hybrid image");
     
     po::options_description hidden("Hidden Options");
     hidden.add_options()
@@ -62,16 +68,53 @@ int main(int argc, char* argv[]) {
         return 0;
     }
     
-    HybridImages hi(input1, input2);
-    cv::Mat result = hi.getHybridImages(sigma);
-    
-    if (argc >= 5 && !cv::imwrite(output, result)) {
-        return -1;
+    cv::Mat src1 = cv::imread(input1);
+    cv::Mat src2 = cv::imread(input2);
+    int w1 = src1.cols, h1 = src1.rows;
+    int w2 = src2.cols, h2 = src2.rows;
+    int h, w, t1 = 0, l1 = 0;
+    if (t2 > 0) {
+        h = std::min(h2, h2-t2);
+        t1 = t2;
+        t2 = 0;
+    } else {
+        h = std::min(h1, h2+t2);
+        t1 = 0;
+        t2 = -t2;
+    }
+    if (l2 > 0) {
+        w = std::min(w2, w1-l2);
+        l1 = l2;
+        l2 = 0;
+    } else {
+        w = std::min(w1, w2+l2);
+        l1 = 0;
+        l2 = -l2;
     }
     
-    cv::namedWindow("hybrid image", CV_WINDOW_AUTOSIZE);
-    cv::imshow("hybrid image", result);
-    cv::waitKey(-1);
+    src1 = src1(cv::Rect(l1, t1, w, h));
+    src2 = src2(cv::Rect(l2, t2, w, h));
+    
+    if (vm.count("debug")) {
+        cv::namedWindow("source1", CV_WINDOW_AUTOSIZE);
+        cv::imshow("source1", src1);
+        cv::namedWindow("source2", CV_WINDOW_AUTOSIZE);
+        cv::imshow("source2", src2);
+        cv::waitKey(-1);
+    }
+    
+    HybridImages hi(src1, src2);
+    cv::Mat result = hi.getHybridImages(sigma);
+    
+    if (vm.count("output") && !cv::imwrite(output, result)) {
+        return EXIT_FAILURE;
+    }
+    
+    if (vm.count("show")) {
+        cv::namedWindow("hybrid image", CV_WINDOW_AUTOSIZE);
+        cv::imshow("hybrid image", result);
+        cv::waitKey(-1);
+    }
     
     return 0;
 }
