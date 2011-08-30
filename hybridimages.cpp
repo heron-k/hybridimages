@@ -6,42 +6,73 @@
 #include "hybridimages.h"
 #include "gaussian_kernel.h"
 
-HybridImages::HybridImages(const std::string& input1, const std::string& input2) {
-    init(cv::imread(input1), cv::imread(input2));
+HybridImages::HybridImages(const std::string& input1, const std::string& input2, int left, int top, bool verbose):verbose(verbose) {
+    init(cv::imread(input1), cv::imread(input2), left, top);
 }
 
-HybridImages::HybridImages(const cv::Mat& src1, const cv::Mat& src2) {
-    init(src1, src2);
+HybridImages::HybridImages(const cv::Mat& src1, const cv::Mat& src2, int left, int top, bool verbose) :verbose(verbose) {
+    init(src1, src2, left, top);
 }
 
-void HybridImages::init(const cv::Mat& img1, const cv::Mat& img2) {
-    int width, height;
-    if (img1.cols > img1.rows) {
-        if (img1.cols > MaxWidth) {
-            width = MaxWidth;
-            height = MaxWidth * img1.rows / img1.cols;
-        } else {
-            width = img1.cols;
-            height = img1.rows;		
-        }
-    } else {
-        if (img1.rows > MaxWidth) {
-            height = MaxWidth;
-            width = MaxWidth * img1.cols / img1.rows;
-        } else {
-            width = img1.cols;
-            height = img1.rows;		
-        }
+HybridImages::~HybridImages() {}
+
+void HybridImages::init(const cv::Mat& img1, const cv::Mat& img2, int l, int t) {
+    if (verbose) {
+        std::cout << "Start initialization." << std::endl;
     }
-    dsize = cv::Size(width, height);
-    ksize = cv::Size(cv::getOptimalDFTSize(width), cv::getOptimalDFTSize(height));
-    cv::Mat dst1;
-    cv::resize(img1, dst1, dsize, CV_INTER_CUBIC);
-    dst1.convertTo(src1, CV_64FC3);
+    int w1 = img1.cols, h1 = img1.rows;
+    int w2 = img2.cols, h2 = img2.rows;
     
-    cv::Mat dst2;
-    cv::resize(img2, dst2, dsize, CV_INTER_CUBIC);
+    int w, h, l1 = 0, l2 = 0, t1 = 0, t2 = 0;
+    if (l > 0) {
+        w = w2 + l;
+        l2 = l;
+    } else {
+        w = w1 - l;
+        l1 = -l;
+    }
+    
+    if (t > 0) {
+        h = h2 + t;
+        t2 = t;
+    } else {
+        h = h1 - t;
+        t1 = -t;
+    }
+    
+    if (verbose) {
+        std::cout << "( w,  h) = (" << w << ", " << h << ")\n"
+                  << "(l1, t1) = (" << l1 << ", " << t1 << ")\n"
+                  << "(l2, t2) = (" << l2 << ", " << t2 << ")" << std::endl;
+    }
+
+    dsize = cv::Size(w, h);
+    ksize = cv::Size(cv::getOptimalDFTSize(w), cv::getOptimalDFTSize(h));
+    
+    if (verbose) {
+        std::cout << "Create src1" << std::endl;
+    }
+
+    cv::Mat dst1(dsize, img1.type(), cv::Scalar::all(255));
+    cv::Mat roi1 = dst1(cv::Rect(l1, t1, w1, h1));
+    img1.copyTo(roi1);
+    dst1.convertTo(src1, CV_64FC3);
+    if (verbose) {
+        std::cout << "Create src2" << std::endl;
+    }
+    cv::Mat dst2(dsize, img2.type(), cv::Scalar::all(255));
+    cv::Mat roi2 = dst2(cv::Rect(l2, t2, w2, h2));
+    img2.copyTo(roi2);
     dst2.convertTo(src2, CV_64FC3);
+    
+    if (verbose) {
+        std::cout << "Finish initialization." << std::endl;
+    }
+    cv::namedWindow("src1", CV_WINDOW_AUTOSIZE);
+    cv::imshow("src1", dst1);
+    cv::namedWindow("src2", CV_WINDOW_AUTOSIZE);
+    cv::imshow("src2", dst2);
+    cv::waitKey(-1);
 }
 
 // 複素数平面をdft1, dft2にコピーし，残りの行列右側部分を0で埋めた後，離散フーリエ変換を行う
@@ -61,6 +92,9 @@ void HybridImages::dft(const cv::Mat& src, cv::Mat& dst) {
 //////////////////////////////////////////
 void HybridImages::create1ch(const cv::Mat& s1, const cv::Mat& s2, const double sigma, cv::Mat& dst) {
     // 入力画像と虚数配列をマージして複素数平面を構成
+    if (verbose) {
+        std::cout << "Create Gaussian plane." << std::endl;
+    }
     cv::Mat c1(s1.size(), CV_64FC2), c2(s1.size(), CV_64FC2);
     cv::Mat im = cv::Mat::zeros(s2.size(), CV_64FC1);
     cv::Mat mv[] = { s1, im };
@@ -68,10 +102,16 @@ void HybridImages::create1ch(const cv::Mat& s1, const cv::Mat& s2, const double 
     mv[0] = s2;
     cv::merge(mv, 2, c2);
     
+    if (verbose) {
+        std::cout << "Discrete Fourier Transformation." << std::endl;
+    }
     cv::Mat dft1, dft2;
     dft(c1, dft1);
     dft(c2, dft2);
     
+    if (verbose) {
+        std::cout << "Convolution in Frequency Domain." << std::endl;
+    }
     // 周波数領域において，ガウシアンカーネルGを用いて以下の処理を行う
     // Output = Input1・G + Input2・(1-G)
     cv::Mat l = gs[sigma].first, h = gs[sigma].second;
@@ -79,6 +119,9 @@ void HybridImages::create1ch(const cv::Mat& s1, const cv::Mat& s2, const double 
     cv::multiply(dft2, h, dft2);
     cv::Mat dft = dft1 + dft2;
     
+    if (verbose) {
+        std::cout << "Inversed Discrete Fourier Transformation." << std::endl;
+    }
     // 離散フーリエ逆変換し，実数成分をdstに格納
     cv::idft(dft, dft, cv::DFT_SCALE, s1.rows);
     cv::Mat tmp = dft(cv::Rect(0, 0, s1.cols, s1.rows));
@@ -99,6 +142,9 @@ cv::Mat& HybridImages::getHybridImages(const double sigma) {
     g_pair_map::iterator g = gs.find(sigma);
     if (g == gs.end()) {
         cv::Mat l, h;
+        if (verbose) {
+            std::cout << "Create Gaussian Kernel." << std::endl;
+        }
         gaussian_kernel(l, h, ksize, sigma);
         gs[sigma] = std::make_pair(l, h);
     }
