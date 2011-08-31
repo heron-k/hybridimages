@@ -25,18 +25,34 @@ void HybridImages::init(const cv::Mat& img1, const cv::Mat& img2, int l, int t) 
     
     int w, h, l1 = 0, l2 = 0, t1 = 0, t2 = 0;
     if (l > 0) {
-        w = w2 + l;
+        if (w2+l > w1) {
+            w = w2+l;
+        } else {
+            w = w1;
+        }
         l2 = l;
     } else {
-        w = w1 - l;
+        if (w2+l > w1) {
+            w = w2;
+        } else {
+            w = w1-l;
+        }
         l1 = -l;
     }
     
     if (t > 0) {
-        h = h2 + t;
+        if (h2+t > h1) {
+            h = h2+t;
+        } else {
+            h = h1;
+        }
         t2 = t;
     } else {
-        h = h1 - t;
+        if (h2+t > h1) {
+            h = h2;
+        } else {
+            h = h1-t;
+        }
         t1 = -t;
     }
     
@@ -56,23 +72,41 @@ void HybridImages::init(const cv::Mat& img1, const cv::Mat& img2, int l, int t) 
     cv::Mat dst1(dsize, img1.type(), cv::Scalar::all(255));
     cv::Mat roi1 = dst1(cv::Rect(l1, t1, w1, h1));
     img1.copyTo(roi1);
+    fill_external_pixel(roi1, l1, t1, w1, h1);
     dst1.convertTo(src1, CV_64FC3);
     if (verbose) {
         std::cout << "Create src2" << std::endl;
     }
+    
     cv::Mat dst2(dsize, img2.type(), cv::Scalar::all(255));
     cv::Mat roi2 = dst2(cv::Rect(l2, t2, w2, h2));
     img2.copyTo(roi2);
+    fill_external_pixel(roi2, l2, t2, w2, h2);
     dst2.convertTo(src2, CV_64FC3);
-    
     if (verbose) {
         std::cout << "Finish initialization." << std::endl;
     }
-    cv::namedWindow("src1", CV_WINDOW_AUTOSIZE);
-    cv::imshow("src1", dst1);
-    cv::namedWindow("src2", CV_WINDOW_AUTOSIZE);
-    cv::imshow("src2", dst2);
-    cv::waitKey(-1);
+}
+
+void HybridImages::fill_external_pixel(cv::Mat& src, int l, int t, int w, int h) {
+    const int width = src.cols, height = src.rows;
+    for (int i = t; i > 0; i--) {
+        for (int j = l; j < l+w; j++) {
+            int idx = src.step*i+j*src.elemSize();
+            src.data[idx+0] = src.data[idx+src.step+0];
+            src.data[idx+1] = src.data[idx+src.step+1];
+            src.data[idx+2] = src.data[idx+src.step+2];
+        }
+    }
+    for (int i = t+h; i < height; i++) {
+        for (int j = l; j < l+w; j++) {
+            int idx = src.step*i+j*src.elemSize();
+            src.data[idx+0] = src.data[idx-src.step+0];
+            src.data[idx+1] = src.data[idx-src.step+1];
+            src.data[idx+2] = src.data[idx-src.step+2];
+        }
+    }
+
 }
 
 // 複素数平面をdft1, dft2にコピーし，残りの行列右側部分を0で埋めた後，離散フーリエ変換を行う

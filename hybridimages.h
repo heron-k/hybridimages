@@ -22,6 +22,7 @@ private:
     void dft(const cv::Mat& src, cv::Mat& dst);
     void create1ch(const cv::Mat& s1, const cv::Mat& s2, const double sigma, cv::Mat& dst);
     void init(const cv::Mat& src1, const cv::Mat& src2, int left, int top);
+    void fill_external_pixel(cv::Mat& src, int left, int top, int width, int height);
 public:
     HybridImages(const std::string& input1, const std::string& input2, int left = 0, int top = 0, bool verbose = false);
     HybridImages(const cv::Mat& src1, const cv::Mat& src2, int left = 0, int top = 0, bool verbose = false);
